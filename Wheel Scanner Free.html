@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Wheel Strategy - Final Fix</title>
+    <style>
+        body { font-family: sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        button { background: #238636; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
+        #log { font-family: monospace; font-size: 12px; color: #8b949e; background: #000; padding: 10px; border-radius: 4px; height: 100px; overflow-y: scroll; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border-bottom: 1px solid #30363d; padding: 12px; text-align: left; }
+        .premium { color: #d29922; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🎡 Wheel Strategy Scanner</h2>
+    <button onclick="runScanner()">Scan Market (Check Console if Fails)</button>
+    <div id="log">Status: Waiting for user...</div>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Ticker</th><th>Price</th><th>Vol</th><th>Put Premium</th><th>Breakeven</th></tr>
+        </thead>
+        <tbody id="results"></tbody>
+    </table>
+</div>
+
+<script>
+function addLog(msg) {
+    const log = document.getElementById('log');
+    log.innerHTML += `<div>> ${msg}</div>`;
+    log.scrollTop = log.scrollHeight;
+    console.log(msg);
+}
+
+async function runScanner() {
+    const resultsTable = document.getElementById('results');
+    resultsTable.innerHTML = "";
+    addLog("Starting Scan...");
+
+    const tickers = ["TSLA", "NVDA", "AMD", "MARA", "PLTR", "SOXL"];
+    
+    for (let symbol of tickers) {
+        try {
+            addLog(`Fetching ${symbol}...`);
+            
+            // Re-formatted Proxy URL
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+            const proxy = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+            
+            const response = await fetch(proxy);
+            
+            if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+            
+            const data = await response.json();
+            const price = data.chart.result[0].meta.regularMarketPrice;
+            const prevClose = data.chart.result[0].meta.previousClose;
+            
+            // Volatility Estimate
+            const vol = Math.abs((price - prevClose) / prevClose * 100).toFixed(2);
+            const premium = (price * (vol / 5) * 0.12).toFixed(2);
+
+            resultsTable.innerHTML += `
+                <tr>
+                    <td><strong>${symbol}</strong></td>
+                    <td>$${price.toFixed(2)}</td>
+                    <td>${vol}%</td>
+                    <td class="premium">$${premium}</td>
+                    <td>$${(price - premium).toFixed(2)}</td>
+                </tr>`;
+            
+            addLog(`Success: ${symbol}`);
+        } catch (err) {
+            addLog(`FAILED: ${symbol} - ${err.message}`);
+        }
+    }
+    addLog("Scan Complete.");
+}
+</script>
+</body>
+</html>
